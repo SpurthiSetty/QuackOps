@@ -42,7 +42,7 @@ jobs:
       - name: Get Version Tag
         shell: bash
         run: |
-          VERSION=$(git describe --tags --always)
+          VERSION=$(git describe --tags --always || echo "v1.0.0000")
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Build version: $VERSION"
 
@@ -53,7 +53,16 @@ jobs:
           name: MAVSDK-Build-${{ env.VERSION }}
           path: build/
 
-      # 7️⃣ (Optional) Auto-create new changelist tag
+      # 7️⃣ Configure Git identity for tagging
+      - name: Configure Git identity
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "github-actions"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # 8️⃣ Auto-create new changelist tag
       - name: Auto-tag new version
         if: github.ref == 'refs/heads/main'
         shell: bash
@@ -64,5 +73,6 @@ jobs:
           CHANGE=$(echo $VERSION | cut -d. -f3)
           NEXT=$(printf "%04d" $((10#$CHANGE + 1)))
           NEW_TAG="v${MAJOR}.${MINOR}.${NEXT}"
+          echo "Tagging new version: $NEW_TAG"
           git tag -a $NEW_TAG -m "Auto-tagged build $NEW_TAG"
           git push origin $NEW_TAG
