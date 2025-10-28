@@ -1,0 +1,68 @@
+name: MAVSDK Auto Build and Version (Windows)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # 1️⃣ Checkout source and submodules
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # 2️⃣ Configure MSVC developer tools
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # 3️⃣ Configure CMake (uses Visual Studio generator)
+      - name: Configure with CMake
+        run: |
+          mkdir build
+          cd build
+          cmake ..\third_party\MAVSDK -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      # 4️⃣ Build with MSBuild
+      - name: Build MAVSDK
+        run: |
+          cd build
+          cmake --build . --config Release
+
+      # 5️⃣ Extract version tag from Git
+      - name: Get Version Tag
+        shell: bash
+        run: |
+          VERSION=$(git describe --tags --always)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Build version: $VERSION"
+
+      # 6️⃣ Upload compiled binaries
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MAVSDK-Build-${{ env.VERSION }}
+          path: build/
+
+      # 7️⃣ (Optional) Auto-create new changelist tag
+      - name: Auto-tag new version
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 || echo "v1.0.0000")
+          MAJOR=$(echo $VERSION | cut -d. -f1 | sed 's/v//')
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          CHANGE=$(echo $VERSION | cut -d. -f3)
+          NEXT=$(printf "%04d" $((10#$CHANGE + 1)))
+          NEW_TAG="v${MAJOR}.${MINOR}.${NEXT}"
+          git tag -a $NEW_TAG -m "Auto-tagged build $NEW_TAG"
+          git push origin $NEW_TAG
