@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>🚁 Stevens Drone GPS Tracker</title>
+
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Leaflet -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+      #info {
+        background: #f0f0f0;
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+        text-align: center;
+      }
+      #status {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: red;
+      }
+      #map {
+        height: 90vh;
+        width: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="info">
+      <h2>📡 Live Drone GPS — Stevens Campus</h2>
+      <div id="coords">Lat: -- | Lon: --</div>
+      <div id="status">🚫 No Drone in Flight</div>
+    </div>
+    <div id="map"></div>
+
+    <script>
+      const socket = io();
+
+      // initialize map centered on Stevens campus
+      const map = L.map("map").setView([40.7440, -74.0255], 18);
+
+      // restrict panning/zoom to the Stevens campus area
+      const bounds = L.latLngBounds(
+        [40.7415, -74.0300], // southwest
+        [40.7460, -74.0220]  // northeast
+      );
+      map.setMaxBounds(bounds);
+      map.setMinZoom(17);
+      map.setMaxZoom(19);
+
+      // add OpenStreetMap tiles
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      // marker + flight path
+      let marker = L.marker([40.7440, -74.0255]).addTo(map);
+      let pathCoords = [];
+      const pathLine = L.polyline(pathCoords, { color: "blue", weight: 3 }).addTo(map);
+
+      // flight activity tracker
+      let lastUpdateTime = Date.now();
+      let isInFlight = false;
+
+      socket.on("gps", (data) => {
+        if (!data.lat || !data.lon) return;
+
+        const { lat, lon } = data;
+        lastUpdateTime = Date.now();
+
+        // show active flight status
+        if (!isInFlight) {
+          isInFlight = true;
+          document.getElementById("status").textContent = "🟢 Drone in Flight";
+          document.getElementById("status").style.color = "green";
+        }
+
+        // update coordinate display
+        document.getElementById("coords").textContent =
+          `Lat: ${lat.toFixed(6)} | Lon: ${lon.toFixed(6)}`;
+
+        // update marker and center map smoothly
+        marker.setLatLng([lat, lon]);
+        map.panTo([lat, lon]);
+
+        // append to path
+        pathCoords.push([lat, lon]);
+        pathLine.setLatLngs(pathCoords);
+
+        // optionally limit trail length to last 100 points
+        if (pathCoords.length > 100) {
+          pathCoords.shift();
+        }
+      });
+
+      // detect if GPS signal stops
+      setInterval(() => {
+        const timeSince = (Date.now() - lastUpdateTime) / 1000;
+        if (timeSince > 5 && isInFlight) {
+          isInFlight = false;
+          document.getElementById("status").textContent = "🚫 No Drone in Flight";
+          document.getElementById("status").style.color = "red";
+        }
+      }, 3000);
+    </script>
+  </body>
+</html>

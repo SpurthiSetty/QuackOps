@@ -1,0 +1,3 @@
+fastapi
+uvicorn
+mavsdk==1.6.0

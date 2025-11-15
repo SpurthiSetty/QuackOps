@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>📡 Live GPS Tracker</title>
+
+    <!-- Include Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Include Leaflet CSS & JS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+      }
+      #map {
+        height: 90vh;
+        width: 100%;
+      }
+      #info {
+        padding: 10px;
+        background: #f0f0f0;
+        border-bottom: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">
+      <h2>📡 Live GPS Data</h2>
+      <div id="coords">Waiting for data...</div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+      const socket = io();
+
+      // Initialize the map centered roughly near your area
+      const map = L.map("map").setView([40.743652, -74.027137], 16);
+
+      // Add base map tiles
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Create a marker for the GPS position
+      let marker = L.marker([40.743652, -74.027137]).addTo(map);
+
+      socket.on("gps", (data) => {
+        if (!data.lat || !data.lon) return;
+
+        // Update coordinates text
+        document.getElementById("coords").textContent =
+          `Lat: ${data.lat.toFixed(6)} | Lon: ${data.lon.toFixed(6)}`;
+
+        // Move marker and recenter map
+        marker.setLatLng([data.lat, data.lon]);
+        map.setView([data.lat, data.lon]);
+      });
+    </script>
+  </body>
+</html>

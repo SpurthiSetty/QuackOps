@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Stevens Drone GPS Tracker</title>
+
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Leaflet -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        background: #f8f8f8;
+      }
+
+      #info {
+        background: #f0f0f0;
+        padding: 12px;
+        border-bottom: 1px solid #ccc;
+      }
+
+      #info h2 {
+        margin: 5px 0;
+        font-size: 1.5rem;
+      }
+
+      #coords {
+        font-size: 1rem;
+        margin-bottom: 5px;
+      }
+
+      #status {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #b30000;
+      }
+
+      #controls {
+        margin-top: 10px;
+      }
+
+      #controls button {
+        margin: 6px;
+        padding: 8px 16px;
+        font-size: 1rem;
+        border: none;
+        border-radius: 6px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      #controls button:hover {
+        background-color: #0056b3;
+      }
+
+      #map-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 12px;
+      }
+
+      #map {
+        height: 690px;
+        width: 550px;
+        border: 2px solid #ccc;
+        border-radius: 12px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="info">
+      <h2>Live Drone GPS — Stevens Campus</h2>
+      <div id="coords">Lat: -- | Lon: --</div>
+      <div id="status">No Drone in Flight</div>
+
+      <!-- 🧠 Drone Controls -->
+      <div id="controls">
+        <button onclick="callDrone('connect')">🔌 Connect</button>
+        <button onclick="callDrone('arm')">🔓 Arm</button>
+        <button onclick="callDrone('takeoff')">🚀 Takeoff</button>
+        <button onclick="callDrone('land')">⬇️ Land</button>
+      </div>
+    </div>
+
+    <div id="map-container">
+      <div id="map"></div>
+    </div>
+
+    <script>
+      const socket = io();
+      const DRONE_API = "http://localhost:8000"; // MAVSDK backend
+
+      // Initialize map
+      const map = L.map("map", {
+        center: [40.7446, -74.0257],
+        zoom: 16.5,
+        zoomControl: false,
+        dragging: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        touchZoom: false,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      let marker = L.marker([40.7442, -74.0257]).addTo(map);
+      let pathCoords = [];
+      const pathLine = L.polyline(pathCoords, { color: "blue", weight: 3 }).addTo(map);
+
+      let lastUpdateTime = Date.now();
+      let isInFlight = false;
+
+      socket.on("gps", (data) => {
+        if (!data.lat || !data.lon) return;
+
+        const { lat, lon } = data;
+        lastUpdateTime = Date.now();
+
+        if (!isInFlight) {
+          isInFlight = true;
+          document.getElementById("status").textContent = "Drone in Flight";
+          document.getElementById("status").style.color = "green";
+        }
+
+        document.getElementById("coords").textContent =
+          `Lat: ${lat.toFixed(6)} | Lon: ${lon.toFixed(6)}`;
+
+        marker.setLatLng([lat, lon]);
+        pathCoords.push([lat, lon]);
+        pathLine.setLatLngs(pathCoords);
+
+        if (pathCoords.length > 100) pathCoords.shift();
+      });
+
+      setInterval(() => {
+        const timeSince = (Date.now() - lastUpdateTime) / 1000;
+        if (timeSince > 5 && isInFlight) {
+          isInFlight = false;
+          document.getElementById("status").textContent = "No Drone in Flight";
+          document.getElementById("status").style.color = "#b30000";
+        }
+      }, 3000);
+
+      // 📡 Drone API Controller
+      async function callDrone(endpoint) {
+        try {
+          const res = await fetch(`${DRONE_API}/${endpoint}`, {
+            method: "POST",
+          });
+          const data = await res.json();
+          console.log(`[DRONE] ${endpoint}:`, data);
+
+          document.getElementById("status").textContent =
+            data.status ?? `Executed: ${endpoint}`;
+          document.getElementById("status").style.color = "#333";
+        } catch (err) {
+          console.error(`[DRONE ERROR] ${endpoint}`, err);
+          document.getElementById("status").textContent = `Error: ${endpoint}`;
+          document.getElementById("status").style.color = "#b30000";
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,37 @@
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+backend/.venv/
+# Build / distribution
+build/
+dist/
+*.egg-info/
+# IDEs / editors
+.vscode/
+.idea/
+# OS files
+.DS_Store
+Thumbs.db
+# Logs / caches
+logs/
+*.log
+.coverage
+.cache/
+.pytest_cache/
+# Virtual environments created for this project
+opencv/
+mavsdk/
+# Also ignore any virtualenv folders named opencv or mavsdk in subfolders
+**/opencv/
+**/mavsdk/
+# add any other folders you want ignored below
+# my-folder-to-ignore/

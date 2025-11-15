@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Live GPS Viewer</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+      body { font-family: Arial; text-align: center; margin-top: 3rem; }
+      h1 { margin-bottom: 1rem; }
+      .coord { font-size: 1.5rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Live GPS Data</h1>
+    <div class="coord" id="lat">Lat: --</div>
+    <div class="coord" id="lon">Lon: --</div>
+
+    <script>
+      const socket = io();
+      socket.on("gps", (data) => {
+        document.getElementById("lat").textContent = `Lat: ${data.lat?.toFixed(6)}`;
+        document.getElementById("lon").textContent = `Lon: ${data.lon?.toFixed(6)}`;
+        document.getElementById("alt").textContent = data.alt
+          ? `Alt: ${data.alt.toFixed(1)} m`
+          : "Alt: (not available)";
+      });
+    </script>
+  </body>
+</html>
