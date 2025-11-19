@@ -11,6 +11,7 @@ Autonomous drone delivery system for Stevens campus. Combines AI vision, MAVLink
   - [3. Frontend (Node.js)](#3-frontend-nodejs)
 - [API endpoints](#api-endpoints)
 - [What you'll see](#what-youll-see)
+- [CI/CD Pipeline](#cicd-pipeline)
 - [Troubleshooting](#troubleshooting)
 
 ## Project structure
@@ -81,6 +82,41 @@ Example: curl -X POST http://localhost:8000/takeoff
 - Live GPS coordinate updates via WebSockets
 - Status banner (e.g., "Drone in Flight" / "No Drone in Flight")
 - Control buttons: Connect, Arm, Takeoff, Land — these call the backend endpoints
+
+## CI/CD Pipeline
+
+### Automated Build & Release
+The GitHub Actions workflow (`.github/workflows/quackops-ci-cd.yml`) automatically:
+
+1. **Version Management**
+   - Auto-increments patch version (e.g., v2.0.0 → v2.0.1)
+   - Creates Git tags on every push to `main`
+
+2. **Component Testing**
+   - **Frontend**: Installs npm dependencies, validates Node.js code
+   - **Backend**: Installs Python packages (FastAPI, MAVSDK), runs pytest
+   - **Vision**: Validates OpenCV/ArUco installation and syntax
+
+3. **Integration Verification**
+   - Pulls PX4 SITL Docker image
+   - Confirms all components can communicate
+   - Verifies dependency compatibility
+
+4. **Release Artifacts**
+   - Bundles all built components into a tarball
+   - Creates GitHub Release with version tag
+   - Uploads build artifacts for distribution
+
+### Triggers
+- Push to `main` or `develop` branches
+- Pull requests to `main`
+
+### What Gets Built
+- Node.js frontend (Express + Socket.IO)
+- Python backend (FastAPI + MAVSDK 1.6.0)
+- Computer vision module (OpenCV + ArUco)
+
+All dependencies installed via pip/npm—no manual C++ compilation required.
 
 ## Troubleshooting
 - Verify Docker is running and PX4 logs show a MAVLink endpoint (udp://localhost:14540).  
