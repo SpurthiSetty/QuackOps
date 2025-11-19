@@ -31,8 +31,8 @@ jobs:
       - name: Calculate version
         id: get_version
         run: |
-          # Get latest tag (handles both v1.0.0001 and 1.0.0001 formats)
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0000")
+          # Get latest tag (handles both v1.2.0000 and 1.2.0000 formats)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.2.0000")
           echo "Latest tag: $LATEST_TAG"
           
           # Remove 'v' prefix if present
@@ -43,7 +43,7 @@ jobs:
           MINOR=$(echo $VERSION | cut -d. -f2)
           BUILD=$(echo $VERSION | cut -d. -f3)
           
-          # Increment build number (handles 4-digit format like 0001)
+          # Increment build number (handles 4-digit format like 0000)
           NEW_BUILD=$(printf "%04d" $((10#$BUILD + 1)))
           NEW_VERSION="${MAJOR}.${MINOR}.${NEW_BUILD}"
           NEW_TAG="${NEW_VERSION}"
