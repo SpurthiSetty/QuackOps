@@ -31,23 +31,27 @@ jobs:
       - name: Calculate version
         id: get_version
         run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v2.0.0")
+          # Get latest tag (handles both v1.0.0001 and 1.0.0001 formats)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0000")
           echo "Latest tag: $LATEST_TAG"
           
-          # Extract version components
+          # Remove 'v' prefix if present
           VERSION=${LATEST_TAG#v}
+          
+          # Extract version components
           MAJOR=$(echo $VERSION | cut -d. -f1)
           MINOR=$(echo $VERSION | cut -d. -f2)
-          PATCH=$(echo $VERSION | cut -d. -f3)
+          BUILD=$(echo $VERSION | cut -d. -f3)
           
-          # Increment patch version
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-          NEW_TAG="v${NEW_VERSION}"
+          # Increment build number (handles 4-digit format like 0001)
+          NEW_BUILD=$(printf "%04d" $((10#$BUILD + 1)))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_BUILD}"
+          NEW_TAG="${NEW_VERSION}"
           
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "tag=${NEW_TAG}" >> $GITHUB_OUTPUT
           echo "New version: ${NEW_VERSION}"
+          echo "New tag: ${NEW_TAG}"
 
   # 2️⃣ Frontend build & test
   frontend:
