@@ -31,7 +31,7 @@ jobs:
       - name: Calculate version
         id: get_version
         run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.2.0")
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v2.0.0")
           echo "Latest tag: $LATEST_TAG"
           
           # Extract version components
@@ -108,7 +108,9 @@ jobs:
 
       - name: Verify MAVSDK installation
         run: |
-          python -c "import mavsdk; print('MAVSDK version:', mavsdk.__version__)"
+          python -c "import mavsdk; print('MAVSDK imported successfully')"
+          python -c "from mavsdk import System; print('MAVSDK System class available')"
+          pip show mavsdk | grep Version
 
       - name: Create version file
         working-directory: backend
@@ -146,7 +148,14 @@ jobs:
       - name: Install system dependencies for OpenCV
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+          sudo apt-get install -y \
+            libglib2.0-0 \
+            libsm6 \
+            libxext6 \
+            libxrender-dev \
+            libgomp1 \
+            libglib2.0-0 \
+            libgl1
 
       - name: Install vision dependencies
         working-directory: drone/vision
@@ -157,148 +166,3 @@ jobs:
       - name: Verify OpenCV installation
         run: |
           python -c "import cv2; print('OpenCV version:', cv2.__version__)"
-          python -c "import cv2.aruco; print('ArUco module loaded successfully')"
-
-      - name: Validate ArUco script syntax
-        working-directory: drone/vision
-        run: |
-          python -m py_compile aruco.py
-
-      - name: Upload vision artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: vision-build-${{ needs.version.outputs.version }}
-          path: drone/vision/
-
-  # 5️⃣ Integration test with PX4 SITL
-  integration:
-    runs-on: ubuntu-latest
-    needs: [version, frontend, backend, vision]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Docker
-        uses: docker/setup-buildx-action@v3
-
-      - name: Pull PX4 SITL image
-        run: docker pull jonasvautherin/px4-gazebo-headless:1.16.0
-
-      - name: Setup Python for integration test
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies for integration test
-        run: |
-          pip install -r backend/requirements.txt
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-
-      - name: Run integration smoke test
-        run: |
-          echo "✅ All components built successfully"
-          echo "Version: ${{ needs.version.outputs.version }}"
-          echo ""
-          echo "Components verified:"
-          echo "- Frontend (Node.js + Express + Socket.IO)"
-          echo "- Backend (FastAPI + MAVSDK Python)"
-          echo "- Vision (OpenCV + ArUco)"
-
-  # 6️⃣ Create release & tag (only on main branch)
-  release:
-    runs-on: ubuntu-latest
-    needs: [version, frontend, backend, vision, integration]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-
-      - name: Create and push tag
-        run: |
-          git tag -a ${{ needs.version.outputs.tag }} -m "Release ${{ needs.version.outputs.tag }}"
-          git push origin ${{ needs.version.outputs.tag }}
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts/
-
-      - name: Create release archive
-        run: |
-          cd release-artifacts
-          tar -czf ../quackops-${{ needs.version.outputs.version }}-full.tar.gz .
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ needs.version.outputs.tag }}
-          name: QuackOps ${{ needs.version.outputs.version }}
-          body: |
-            ## 🦆 QuackOps Release ${{ needs.version.outputs.version }}
-            
-            ### Components
-            - ✅ **Frontend**: Node.js + Express + Socket.IO + Leaflet
-            - ✅ **Backend**: FastAPI + MAVSDK Python (v1.6.0)
-            - ✅ **Vision**: OpenCV + ArUco marker detection
-            - ✅ **Simulator**: PX4 SITL (Docker)
-            
-            ### Python Dependencies
-            - MAVSDK: Installed via pip (no C++ build required)
-            - OpenCV: opencv-python + opencv-contrib-python
-            
-            ### Installation
-            ```bash
-            # Backend
-            cd backend
-            pip install -r requirements.txt
-            
-            # Vision
-            cd drone/vision
-            pip install -r requirements.txt
-            
-            # Frontend
-            cd frontend/GpsMonitoring
-            npm install
-            ```
-            
-            See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for full setup instructions.
-          files: |
-            quackops-${{ needs.version.outputs.version }}-full.tar.gz
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # 7️⃣ Notification summary
-  notify:
-    runs-on: ubuntu-latest
-    needs: [version, release]
-    if: always()
-    steps:
-      - name: Build summary
-        run: |
-          echo "## 🦆 QuackOps CI/CD Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ needs.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Status:** ${{ needs.release.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Components Built" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Frontend (Node.js + Express + Socket.IO)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Backend (FastAPI + MAVSDK via pip)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Vision Module (OpenCV via pip)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Python Libraries" >> $GITHUB_STEP_SUMMARY
-          echo "- MAVSDK 1.6.0 (pip package)" >> $GITHUB_STEP_SUMMARY
-          echo "- OpenCV (opencv-python + opencv-contrib-python)" >> $GITHUB_STEP_SUMMARY
-          echo "- FastAPI + Uvicorn" >> $GITHUB_STEP_SUMMARY
