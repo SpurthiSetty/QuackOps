@@ -6,7 +6,7 @@ import dgram from "dgram";
 import { parseNmeaSentence } from "nmea-simple";
 
 const UDP_PORT = 11123;
-const HTTP_PORT = 3000;
+const HTTP_PORT = 3001;
 
 const app = express();
 const httpServer = createServer(app);
